@@ -47,8 +47,8 @@ def get_conracts(blockchain: str, all_pages: bool = True) -> dict:
         for row in rows:
             try:
                 cols = row.css("td")
-                balance, currency = cols[4].text().split()
                 address = cols[0].text().strip()
+                balance, currency = cols[4].text().split()
                 contracts[address] = {
                     "address": address,
                     "url": f"{url}/address/{address}#code",
@@ -66,8 +66,25 @@ def get_conracts(blockchain: str, all_pages: bool = True) -> dict:
     return contracts
 
 
-if __name__ == "__main__":
+urls = [
+    "https://bscscan.com/address/0xeca88125a5adbe82614ffc12d0db554e2e2867c8#code",  # 4 files, have tracker
+    "https://bscscan.com/address/0x0879dB3A4c289b7e3DFbdbB8Eb9494b2fDd31941#code",  # 6 files, not have tracker
+    "https://bscscan.com/address/0xa9A4B9D7A192E75bE989Ce5D5F824Ae98Eab93f9#code",  # 1 file, have tracker
+    "https://bscscan.com/address/0x8fa73c986fe6a76fecfd878090cba9bcd5687b4e#code",  # 1 file, not have tracker
+]
+
+
+def main():
     contracts = get_conracts("ARBI", True)
     for address, data in contracts.items():
         print(address, data["name"])
     print(len(contracts))
+
+
+def test():
+    for url in urls:
+        print(url)
+
+
+if __name__ == "__main__":
+    test()
