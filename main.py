@@ -2,7 +2,7 @@ from selectolax.parser import HTMLParser
 import requests
 
 
-def get_headers(blockchain):
+def get_headers(blockchain: str) -> dict:
     return {
         "authority": f"{blockchain}",
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -12,23 +12,24 @@ def get_headers(blockchain):
     }
 
 
-def get_page(url, blockchain):
+def get_page(url: str, blockchain: str) -> str:
     headers = get_headers(blockchain)
     return requests.get(url, headers=headers).text
 
 
-def get_conracts(blockchain, page):
-    html = get_page(f"https://{blockchain}/contractsVerified/{page}?ps=100", blockchain)
-    tree = HTMLParser(html)
-    table_body = tree.css_first("tbody")
-    rows = table_body.css("tr")
-    contracts = []
-    for row in rows:
-        try:
-            cols = row.css("td")
-            balance, currency = cols[4].text().split()
-            contracts.append(
-                {
+def get_conracts(blockchain: str, all_pages: bool = True) -> dict:
+    contracts = {}
+    last_page = 6 if all_pages else 2
+    for page in range(1, last_page):
+        html = get_page(f"https://{blockchain}/contractsVerified/{page}?ps=100", blockchain)
+        tree = HTMLParser(html)
+        table_body = tree.css_first("tbody")
+        rows = table_body.css("tr")
+        for row in rows:
+            try:
+                cols = row.css("td")
+                balance, currency = cols[4].text().split()
+                contracts[cols[0].text().strip()] = {
                     "address": cols[0].text().strip(),
                     "name": cols[1].text().strip(),
                     "compiler": cols[2].text().strip(),
@@ -39,9 +40,8 @@ def get_conracts(blockchain, page):
                     "verified": cols[7].text().strip(),
                     "license": cols[9].text().strip(),
                 }
-            )
-        except:
-            continue
+            except:
+                continue
     return contracts
 
 
@@ -54,5 +54,7 @@ POOL = [
 ]
 
 if __name__ == "__main__":
-    for contract in get_conracts(POOL[4], 1):
-        print(contract)
+    contracts = get_conracts(POOL[0], True)
+    for address, data in contracts.items():
+        print(data)
+    print(len(contracts))
