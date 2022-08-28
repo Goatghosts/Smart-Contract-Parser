@@ -176,25 +176,27 @@ def test():
 
 
 def main():
-    for blockchain in BLOCKCHAINS:
-        contracts = get_contracts(blockchain, True)
-        for address, table_data in contracts.items():
-            logging.info(f"Parse [{blockchain}] address: {address}")
-            path = f"./contracts/{blockchain}/{address}"
-            if not os.path.exists(path) or not os.path.exists(f"{path}/abi.json"):
-                os.mkdir(path)
-                data, code_files, abi = get_contract_data(table_data)
-                # Write contract info
-                with open(f"{path}/info.json", "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-                # Write contract source code
-                for filename, code in code_files.items():
-                    with open(f"{path}/{filename}", "w", encoding="utf-8") as f:
-                        f.write(code)
-                # Write contract abi
-                with open(f"{path}/abi.json", "w", encoding="utf-8") as f:
-                    json.dump(abi, f, indent=2)
-                time.sleep(1)
+    while True:
+        for blockchain in BLOCKCHAINS:
+            contracts = get_contracts(blockchain, True)
+            for address, table_data in contracts.items():
+                logging.info(f"Parse [{blockchain}] address: {address}")
+                path = f"./contracts/{blockchain}/{address}"
+                if not os.path.exists(path) or not os.path.exists(f"{path}/abi.json"):
+                    os.mkdir(path)
+                    data, code_files, abi = get_contract_data(table_data)
+                    # Write contract info
+                    with open(f"{path}/info.json", "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+                    # Write contract source code
+                    for filename, code in code_files.items():
+                        with open(f"{path}/{filename}", "w", encoding="utf-8") as f:
+                            f.write(code)
+                    # Write contract abi
+                    with open(f"{path}/abi.json", "w", encoding="utf-8") as f:
+                        json.dump(abi, f, indent=2)
+                    time.sleep(1)
+        time.sleep(120)
 
 
 if __name__ == "__main__":
