@@ -1,5 +1,6 @@
 from selectolax.parser import HTMLParser
 import requests
+import json
 
 BLOCKCHAINS = {
     "BSC": {
@@ -50,6 +51,7 @@ def get_conracts(blockchain: str, all_pages: bool = True) -> dict:
                 address = cols[0].text().strip()
                 balance, currency = cols[4].text().split()
                 contracts[address] = {
+                    "blockchain": blockchain,
                     "address": address,
                     "url": f"{url}/address/{address}#code",
                     "name": cols[1].text().strip(),
@@ -81,10 +83,45 @@ def main():
     print(len(contracts))
 
 
-def test():
-    for url in urls:
-        print(url)
+def get_contract_data(url: str):
+    html = get_page(url, "BSC")
+    tree = HTMLParser(html)
+    info_block = tree.css_first("div.row.mb-4")
+    data = {}
+    rows = info_block.css("div.row.align-items-center")
+    balance = rows[0].css_first("div.col-md-8")
+    if balance:
+        data["crypto_balance"] = balance.text().strip()
+    balance = rows[1].css_first("div.col-md-8")
+    if balance:
+        data["fiat_balance"] = balance.text().strip()
+
+    for row in rows:
+        tokens_balance = row.css_first("a#availableBalanceDropdown")
+        if tokens_balance:
+            data["tokens_balance"] = tokens_balance.text(deep=False).strip()
+            tokens_count = row.css_first("span")
+            if tokens_count:
+                data["tokens_count"] = tokens_count.text(deep=False).strip()
+        creator_address = row.css_first('a[title="Creator Address"]')
+        if creator_address:
+            data["creator_address"] = creator_address.attributes["href"]
+            creator_txn = row.css_first('a[title="Creator Txn Hash"]')
+            if creator_txn:
+                data["creator_txn"] = creator_txn.attributes["href"]
+        token = row.css_first('a[title$="Token Tracker Page"]')
+        if token:
+            data["token"] = token.attributes["href"]
+
+    print(json.dumps(data, indent=2))
+
+    code_block = tree.css_first("div#dividcode")
+    for i, code in enumerate(code_block.css("pre.editor")):
+        print(i)
+        print(code.text())
+    print("-----------------------------------------------------------------")
 
 
 if __name__ == "__main__":
-    test()
+    for url in urls:
+        get_contract_data(url)
