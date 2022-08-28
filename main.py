@@ -1,12 +1,17 @@
 import json
 import traceback
 import logging
+import time
+import re
+import os
 
 import requests
 from selectolax.parser import HTMLParser
-import re
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] - %(message)s")
+if not os.path.exists("contracts"):
+    os.mkdir("contracts")
+
 
 BLOCKCHAINS = {
     "BSC": {
@@ -25,6 +30,9 @@ BLOCKCHAINS = {
         "url": "https://arbiscan.io",
     },
 }
+for blockchain in BLOCKCHAINS:
+    if not os.path.exists(f"./contracts/{blockchain}"):
+        os.mkdir(f"./contracts/{blockchain}")
 
 CLEANER = re.compile(r"[^0-9/.]+")
 
@@ -40,14 +48,28 @@ def get_headers(blockchain: str) -> dict:
 
 
 def get_page(url: str, blockchain: str) -> str:
-    headers = get_headers(blockchain)
-    return requests.get(url, headers=headers).text
+    response = ""
+    try:
+        headers = get_headers(blockchain)
+        response = requests.get(url, headers=headers).text
+    except Exception as e:
+        print(traceback.format_exc())
+        logging.error(f"Filed to get page {url} for {blockchain} blockchain")
+        print(e)
+        time.sleep(10)
+
+    return response
 
 
 def parse_contract_abi(tree: HTMLParser) -> str:
-    abi = tree.css_first("pre.wordwrap.js-copytextarea2")
-    if abi:
-        return abi.text().strip()
+    try:
+        abi = tree.css_first("pre.wordwrap.js-copytextarea2")
+        if abi:
+            return json.loads(abi.text().strip())
+    except Exception as e:
+        print(traceback.format_exc())
+        logging.error("Can't parse contract abi")
+        print(e)
     return ""
 
 
@@ -134,9 +156,7 @@ def get_contract_data(table_data: dict):
     contract_data.update(table_data)
     contract_code_files = parse_contract_code_files(tree)
     contract_abi = parse_contract_abi(tree)
-    print(json.dumps(contract_data, indent=2))
-    print(len(contract_code_files))
-    print(len(contract_abi))
+    return contract_data, contract_code_files, contract_abi
 
 
 def test():
@@ -156,13 +176,26 @@ def test():
 
 
 def main():
-    blockchain = "ARBI"
-    contracts = get_contracts(blockchain, True)
-    for address, table_data in contracts.items():
-        print("Parse", address)
-        get_contract_data(table_data)
-    print(len(contracts))
+    for blockchain in BLOCKCHAINS:
+        contracts = get_contracts(blockchain, True)
+        for address, table_data in contracts.items():
+            logging.info(f"Parse [{blockchain}] address: {address}")
+            path = f"./contracts/{blockchain}/{address}"
+            if not os.path.exists(path):
+                os.mkdir(path)
+                data, code_files, abi = get_contract_data(table_data)
+                # Write contract info
+                with open(f"{path}/info.json", "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                # Write contract source code
+                for filename, code in code_files.items():
+                    with open(f"{path}/{filename}", "w", encoding="utf-8") as f:
+                        f.write(code)
+                # Write contract abi
+                with open(f"{path}/abi.json", "w", encoding="utf-8") as f:
+                    json.dump(abi, f, indent=2)
+                time.sleep(0.5)
 
 
 if __name__ == "__main__":
-    test()
+    main()
