@@ -194,7 +194,7 @@ def main():
                 # Write contract abi
                 with open(f"{path}/abi.json", "w", encoding="utf-8") as f:
                     json.dump(abi, f, indent=2)
-                time.sleep(0.5)
+                time.sleep(1)
 
 
 if __name__ == "__main__":
