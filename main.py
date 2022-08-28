@@ -40,7 +40,6 @@ def get_headers(blockchain: str) -> dict:
 
 
 def get_page(url: str, blockchain: str) -> str:
-    return open("index.html").read()
     headers = get_headers(blockchain)
     return requests.get(url, headers=headers).text
 
@@ -67,7 +66,10 @@ def parse_contract_code_files(tree: HTMLParser) -> dict:
 
 
 def parse_contract_data(blockchain: str, tree: HTMLParser) -> dict:
-    data = {}
+    data = {
+        "tokens_balance": 0.0,
+        "tokens_count": 0,
+    }
     try:
         info_block = tree.css_first("div.row.mb-4")
         rows = info_block.css("div.row.align-items-center")
@@ -126,31 +128,41 @@ def get_contracts(blockchain: str, all_pages: bool = True) -> dict:
     return contracts
 
 
-def get_contract_data(url: str):
-    blockchain = "BSC"
-    tree = HTMLParser(get_page(url, blockchain))
-    contract_data = parse_contract_data(blockchain, tree)
+def get_contract_data(table_data: dict):
+    tree = HTMLParser(get_page(table_data["url"], table_data["blockchain"]))
+    contract_data = parse_contract_data(table_data["blockchain"], tree)
+    contract_data.update(table_data)
     contract_code_files = parse_contract_code_files(tree)
     contract_abi = parse_contract_abi(tree)
     print(json.dumps(contract_data, indent=2))
+    print(len(contract_code_files))
+    print(len(contract_abi))
 
 
-urls = [
-    "https://bscscan.com/address/0xeca88125a5adbe82614ffc12d0db554e2e2867c8#code",  # 4 files, have tracker
-    "https://bscscan.com/address/0x0879dB3A4c289b7e3DFbdbB8Eb9494b2fDd31941#code",  # 6 files, not have tracker
-    "https://bscscan.com/address/0xa9A4B9D7A192E75bE989Ce5D5F824Ae98Eab93f9#code",  # 1 file, have tracker
-    "https://bscscan.com/address/0x8fa73c986fe6a76fecfd878090cba9bcd5687b4e#code",  # 1 file, not have tracker
-]
+def test():
+    test_urls = [
+        "https://bscscan.com/address/0xeca88125a5adbe82614ffc12d0db554e2e2867c8#code",  # 4 files, have tracker
+        "https://bscscan.com/address/0x0879dB3A4c289b7e3DFbdbB8Eb9494b2fDd31941#code",  # 7 files, not have tracker
+        "https://bscscan.com/address/0xa9A4B9D7A192E75bE989Ce5D5F824Ae98Eab93f9#code",  # 1 file, have tracker
+        "https://bscscan.com/address/0x8fa73c986fe6a76fecfd878090cba9bcd5687b4e#code",  # 1 file, not have tracker
+    ]
+    for url in test_urls:
+        table_data = {
+            "name": "test",
+            "blockchain": "BSC",
+            "url": url,
+        }
+        get_contract_data(table_data)
 
 
 def main():
-    contracts = get_contracts("ARBI", True)
-    for address, data in contracts.items():
-        print(address, data["name"])
+    blockchain = "ARBI"
+    contracts = get_contracts(blockchain, True)
+    for address, table_data in contracts.items():
+        print("Parse", address)
+        get_contract_data(table_data)
     print(len(contracts))
 
 
 if __name__ == "__main__":
-    get_contract_data("1")
-    # for url in urls:
-    #     get_contract_data(url)
+    test()
