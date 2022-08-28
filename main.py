@@ -181,7 +181,7 @@ def main():
         for address, table_data in contracts.items():
             logging.info(f"Parse [{blockchain}] address: {address}")
             path = f"./contracts/{blockchain}/{address}"
-            if not os.path.exists(path):
+            if not os.path.exists(path) or not os.path.exists(f"{path}/abi.json"):
                 os.mkdir(path)
                 data, code_files, abi = get_contract_data(table_data)
                 # Write contract info
