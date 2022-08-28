@@ -70,7 +70,7 @@ def parse_contract_abi(tree: HTMLParser) -> str:
         print(traceback.format_exc())
         logging.error("Can't parse contract abi")
         print(e)
-    return ""
+    return None
 
 
 def parse_contract_code_files(tree: HTMLParser) -> dict:
@@ -185,6 +185,8 @@ def main():
                 if not os.path.exists(path) or not os.path.exists(f"{path}/abi.json"):
                     os.mkdir(path)
                     data, code_files, abi = get_contract_data(table_data)
+                    if abi is None:
+                        continue
                     # Write contract info
                     with open(f"{path}/info.json", "w", encoding="utf-8") as f:
                         json.dump(data, f, indent=2)
@@ -196,7 +198,7 @@ def main():
                     with open(f"{path}/abi.json", "w", encoding="utf-8") as f:
                         json.dump(abi, f, indent=2)
                     time.sleep(1)
-        time.sleep(120)
+        time.sleep(600)
 
 
 if __name__ == "__main__":
