@@ -1,6 +1,11 @@
-from selectolax.parser import HTMLParser
-import requests
 import json
+import traceback
+import logging
+
+import requests
+from selectolax.parser import HTMLParser
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] - %(message)s")
 
 BLOCKCHAINS = {
     "BSC": {
@@ -32,11 +37,68 @@ def get_headers(blockchain: str) -> dict:
 
 
 def get_page(url: str, blockchain: str) -> str:
+    return open("index.html").read()
     headers = get_headers(blockchain)
     return requests.get(url, headers=headers).text
 
 
-def get_conracts(blockchain: str, all_pages: bool = True) -> dict:
+def parse_contract_abi(tree: HTMLParser) -> str:
+    abi = tree.css_first("pre.wordwrap.js-copytextarea2")
+    if abi:
+        return abi.text().strip()
+    return ""
+
+
+def parse_contract_code_files(tree: HTMLParser) -> dict:
+    files = {}
+    try:
+        code_block = tree.css_first("div#dividcode")
+        for i, code in enumerate(code_block.css("pre.editor")):
+            filename = f"code_{i+1}.sol"
+            files[filename] = code.text().strip()
+    except Exception as e:
+        print(traceback.format_exc())
+        logging.error("Can't parse contract code files")
+        print(e)
+    return files
+
+
+def parse_contract_data(tree: HTMLParser) -> dict:
+    data = {}
+    try:
+        info_block = tree.css_first("div.row.mb-4")
+        rows = info_block.css("div.row.align-items-center")
+        balance = rows[0].css_first("div.col-md-8")
+        if balance:
+            data["crypto_balance"] = balance.text().strip()
+        balance = rows[1].css_first("div.col-md-8")
+        if balance:
+            data["fiat_balance"] = balance.text().strip()
+
+        for row in rows:
+            tokens_balance = row.css_first("a#availableBalanceDropdown")
+            if tokens_balance:
+                data["tokens_balance"] = tokens_balance.text(deep=False).strip()
+                tokens_count = row.css_first("span")
+                if tokens_count:
+                    data["tokens_count"] = tokens_count.text(deep=False).strip()
+            creator_address = row.css_first('a[title="Creator Address"]')
+            if creator_address:
+                data["creator_address"] = creator_address.attributes["href"]
+                creator_txn = row.css_first('a[title="Creator Txn Hash"]')
+                if creator_txn:
+                    data["creator_txn"] = creator_txn.attributes["href"]
+            token = row.css_first('a[title$="Token Tracker Page"]')
+            if token:
+                data["token"] = token.attributes["href"]
+    except Exception as e:
+        print(traceback.format_exc())
+        logging.error("Can't parse contract data")
+        print(e)
+    return data
+
+
+def get_contracts(blockchain: str, all_pages: bool = True) -> dict:
     contracts = {}
     last_page = 6 if all_pages else 2
     url = BLOCKCHAINS[blockchain]["url"]
@@ -68,6 +130,15 @@ def get_conracts(blockchain: str, all_pages: bool = True) -> dict:
     return contracts
 
 
+def get_contract_data(url: str):
+    tree = HTMLParser(get_page(url, "BSC"))
+    contract_data = parse_contract_data(tree)
+    contract_code_files = parse_contract_code_files(tree)
+    contract_abi = parse_contract_abi(tree)
+    print(json.dumps(contract_data, indent=2))
+    print(contract_abi)
+
+
 urls = [
     "https://bscscan.com/address/0xeca88125a5adbe82614ffc12d0db554e2e2867c8#code",  # 4 files, have tracker
     "https://bscscan.com/address/0x0879dB3A4c289b7e3DFbdbB8Eb9494b2fDd31941#code",  # 6 files, not have tracker
@@ -77,51 +148,13 @@ urls = [
 
 
 def main():
-    contracts = get_conracts("ARBI", True)
+    contracts = get_contracts("ARBI", True)
     for address, data in contracts.items():
         print(address, data["name"])
     print(len(contracts))
 
 
-def get_contract_data(url: str):
-    html = get_page(url, "BSC")
-    tree = HTMLParser(html)
-    info_block = tree.css_first("div.row.mb-4")
-    data = {}
-    rows = info_block.css("div.row.align-items-center")
-    balance = rows[0].css_first("div.col-md-8")
-    if balance:
-        data["crypto_balance"] = balance.text().strip()
-    balance = rows[1].css_first("div.col-md-8")
-    if balance:
-        data["fiat_balance"] = balance.text().strip()
-
-    for row in rows:
-        tokens_balance = row.css_first("a#availableBalanceDropdown")
-        if tokens_balance:
-            data["tokens_balance"] = tokens_balance.text(deep=False).strip()
-            tokens_count = row.css_first("span")
-            if tokens_count:
-                data["tokens_count"] = tokens_count.text(deep=False).strip()
-        creator_address = row.css_first('a[title="Creator Address"]')
-        if creator_address:
-            data["creator_address"] = creator_address.attributes["href"]
-            creator_txn = row.css_first('a[title="Creator Txn Hash"]')
-            if creator_txn:
-                data["creator_txn"] = creator_txn.attributes["href"]
-        token = row.css_first('a[title$="Token Tracker Page"]')
-        if token:
-            data["token"] = token.attributes["href"]
-
-    print(json.dumps(data, indent=2))
-
-    code_block = tree.css_first("div#dividcode")
-    for i, code in enumerate(code_block.css("pre.editor")):
-        print(i)
-        print(code.text())
-    print("-----------------------------------------------------------------")
-
-
 if __name__ == "__main__":
-    for url in urls:
-        get_contract_data(url)
+    get_contract_data("1")
+    # for url in urls:
+    #     get_contract_data(url)
