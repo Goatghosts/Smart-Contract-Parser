@@ -4,6 +4,7 @@ import logging
 
 import requests
 from selectolax.parser import HTMLParser
+import re
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] - %(message)s")
 
@@ -24,6 +25,8 @@ BLOCKCHAINS = {
         "url": "https://arbiscan.io",
     },
 }
+
+CLEANER = re.compile(r"[^0-9/.]+")
 
 
 def get_headers(blockchain: str) -> dict:
@@ -63,34 +66,27 @@ def parse_contract_code_files(tree: HTMLParser) -> dict:
     return files
 
 
-def parse_contract_data(tree: HTMLParser) -> dict:
+def parse_contract_data(blockchain: str, tree: HTMLParser) -> dict:
     data = {}
     try:
         info_block = tree.css_first("div.row.mb-4")
         rows = info_block.css("div.row.align-items-center")
-        balance = rows[0].css_first("div.col-md-8")
-        if balance:
-            data["crypto_balance"] = balance.text().strip()
-        balance = rows[1].css_first("div.col-md-8")
-        if balance:
-            data["fiat_balance"] = balance.text().strip()
-
         for row in rows:
             tokens_balance = row.css_first("a#availableBalanceDropdown")
             if tokens_balance:
-                data["tokens_balance"] = tokens_balance.text(deep=False).strip()
+                data["tokens_balance"] = float(CLEANER.sub("", tokens_balance.text(deep=False).strip()))
                 tokens_count = row.css_first("span")
                 if tokens_count:
-                    data["tokens_count"] = tokens_count.text(deep=False).strip()
+                    data["tokens_count"] = int(CLEANER.sub("", tokens_count.text(deep=False).strip()))
             creator_address = row.css_first('a[title="Creator Address"]')
             if creator_address:
-                data["creator_address"] = creator_address.attributes["href"]
+                data["creator_address_url"] = BLOCKCHAINS[blockchain]["url"] + creator_address.attributes["href"]
                 creator_txn = row.css_first('a[title="Creator Txn Hash"]')
                 if creator_txn:
-                    data["creator_txn"] = creator_txn.attributes["href"]
+                    data["creator_txn_url"] = BLOCKCHAINS[blockchain]["url"] + creator_txn.attributes["href"]
             token = row.css_first('a[title$="Token Tracker Page"]')
             if token:
-                data["token"] = token.attributes["href"]
+                data["token_url"] = BLOCKCHAINS[blockchain]["url"] + token.attributes["href"]
     except Exception as e:
         print(traceback.format_exc())
         logging.error("Can't parse contract data")
@@ -131,12 +127,12 @@ def get_contracts(blockchain: str, all_pages: bool = True) -> dict:
 
 
 def get_contract_data(url: str):
-    tree = HTMLParser(get_page(url, "BSC"))
-    contract_data = parse_contract_data(tree)
+    blockchain = "BSC"
+    tree = HTMLParser(get_page(url, blockchain))
+    contract_data = parse_contract_data(blockchain, tree)
     contract_code_files = parse_contract_code_files(tree)
     contract_abi = parse_contract_abi(tree)
     print(json.dumps(contract_data, indent=2))
-    print(contract_abi)
 
 
 urls = [
