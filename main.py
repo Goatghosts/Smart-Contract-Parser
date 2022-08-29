@@ -126,40 +126,49 @@ def get_contracts(blockchain: str, all_pages: bool = True) -> dict:
     last_page = 6 if all_pages else 2
     url = BLOCKCHAINS[blockchain]["url"]
     for page in range(1, last_page):
-        html = get_page(f"{url}/contractsVerified/{page}?ps=100", blockchain)
-        tree = HTMLParser(html)
-        table_body = tree.css_first("tbody")
-        rows = table_body.css("tr")
-        for row in rows:
-            try:
-                cols = row.css("td")
-                address = cols[0].text().strip()
-                balance, currency = cols[4].text().split()
-                contracts[address] = {
-                    "blockchain": blockchain,
-                    "address": address,
-                    "url": f"{url}/address/{address}#code",
-                    "name": cols[1].text().strip(),
-                    "compiler": cols[2].text().strip(),
-                    "version": cols[3].text().strip(),
-                    "balance": float(balance.strip()),
-                    "currency": currency.strip(),
-                    "transactions": int(cols[5].text().strip()),
-                    "verified": cols[7].text().strip(),
-                    "license": cols[9].text().strip(),
-                }
-            except:
-                continue
+        try:
+            html = get_page(f"{url}/contractsVerified/{page}?ps=100", blockchain)
+            tree = HTMLParser(html)
+            table_body = tree.css_first("tbody")
+            rows = table_body.css("tr")
+            for row in rows:
+                try:
+                    cols = row.css("td")
+                    address = cols[0].text().strip()
+                    balance, currency = cols[4].text().split()
+                    contracts[address] = {
+                        "blockchain": blockchain,
+                        "address": address,
+                        "url": f"{url}/address/{address}#code",
+                        "name": cols[1].text().strip(),
+                        "compiler": cols[2].text().strip(),
+                        "version": cols[3].text().strip(),
+                        "balance": float(balance.strip()),
+                        "currency": currency.strip(),
+                        "transactions": int(cols[5].text().strip()),
+                        "verified": cols[7].text().strip(),
+                        "license": cols[9].text().strip(),
+                    }
+                except:
+                    continue
+        except:
+            continue
     return contracts
 
 
 def get_contract_data(table_data: dict):
-    tree = HTMLParser(get_page(table_data["url"], table_data["blockchain"]))
-    contract_data = parse_contract_data(table_data["blockchain"], tree)
-    contract_data.update(table_data)
-    contract_code_files = parse_contract_code_files(tree)
-    contract_abi = parse_contract_abi(tree)
-    return contract_data, contract_code_files, contract_abi
+    try:
+        tree = HTMLParser(get_page(table_data["url"], table_data["blockchain"]))
+        contract_data = parse_contract_data(table_data["blockchain"], tree)
+        contract_data.update(table_data)
+        contract_code_files = parse_contract_code_files(tree)
+        contract_abi = parse_contract_abi(tree)
+        return contract_data, contract_code_files, contract_abi
+    except Exception as e:
+        print(traceback.format_exc())
+        logging.error("Can't get contract data")
+        print(e)
+        return None, None, None
 
 
 def test():
