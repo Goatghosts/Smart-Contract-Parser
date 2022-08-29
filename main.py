@@ -9,8 +9,6 @@ import requests
 from selectolax.parser import HTMLParser
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] - %(message)s")
-if not os.path.exists("contracts"):
-    os.mkdir("contracts")
 
 
 BLOCKCHAINS = {
@@ -30,9 +28,14 @@ BLOCKCHAINS = {
         "url": "https://arbiscan.io",
     },
 }
+
+# Create dirs
+MAIN_DIR = "./contracts"
+if not os.path.exists(MAIN_DIR):
+    os.mkdir(MAIN_DIR)
 for blockchain in BLOCKCHAINS:
-    if not os.path.exists(f"./contracts/{blockchain}"):
-        os.mkdir(f"./contracts/{blockchain}")
+    if not os.path.exists(f"{MAIN_DIR}/{blockchain}"):
+        os.mkdir(f"{MAIN_DIR}/{blockchain}")
 
 CLEANER = re.compile(r"[^0-9/.]+")
 
@@ -181,7 +184,7 @@ def main():
             contracts = get_contracts(blockchain, True)
             for address, table_data in contracts.items():
                 logging.info(f"Parse [{blockchain}] address: {address}")
-                path = f"./contracts/{blockchain}/{address}"
+                path = f"{MAIN_DIR}/{blockchain}/{address}"
                 if not os.path.exists(path) or not os.path.exists(f"{path}/abi.json"):
                     os.mkdir(path)
                     data, code_files, abi = get_contract_data(table_data)
